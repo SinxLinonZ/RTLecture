@@ -4,10 +4,10 @@ import "splitpanes/dist/splitpanes.css";
 import { Splitpanes, Pane } from "splitpanes";
 import "xterm/css/xterm.css";
 
-import NoteBookReader from "./components/NoteBookReader.vue";
-import StudentButton from "./components/StudentButton.vue";
-import CellButton from "./components/CellButton.vue";
-import CellExecution from "./components/CellExecution.vue";
+import NoteBookReader from "@/components/NoteBookReader.vue";
+import StudentButton from "@/components/StudentButton.vue";
+import CellButton from "@/components/CellButton.vue";
+import CellExecution from "@/components/CellExecution.vue";
 
 export default {
   components: {
