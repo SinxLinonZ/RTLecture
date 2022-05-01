@@ -27,7 +27,9 @@ export default {
       },
 
       ajaxPending: false,
+      displayMsg: "",
 
+      fileName: "",
       notebook: null,
       cellTags: [],
       cellTagsInitial: [],
@@ -39,10 +41,65 @@ export default {
   },
 
   methods: {
-    GetExecutionData(notebook, cellTags) {
+    ParseNotebookCells(notebook, fileName) {
       this.notebook = notebook;
+      this.fileName = fileName;
+      this.displayMsg = "";
+
+      /**
+       ** cell checks
+       */
+      let flag_noTags = true;
+      let flag_noCodeCell = true;
+
+      // no cell
+      if (!notebook.cells || notebook.cells.length == 0) {
+        this.displayMsg = "ipynbファイルにはコードセルがありません";
+        return;
+      }
+
+      // no code cell or no tags
+      for (let i = 0; i < notebook.cells.length; i++) {
+        const cell = notebook.cells[i];
+        if (cell.cell_type == "code") {
+          flag_noCodeCell = false;
+        }
+        if (cell.metadata.tags && cell.metadata.tags.length > 0) {
+          flag_noTags = false;
+        }
+      }
+      if (flag_noCodeCell) {
+        this.displayMsg = "ipynbファイルにはコードセルがありません";
+        return;
+      }
+      if (flag_noTags) {
+        this.displayMsg = "ipynbファイルにはタグがありません";
+        return;
+      }
+
+      // Cache all cell tags
+      let cellTags = [];
+      for (let i = 0; i < notebook.cells.length; i++) {
+        const cell = notebook.cells[i];
+
+        if (
+          cell.cell_type == "code" &&
+          cell.metadata.tags &&
+          cell.metadata.tags.length > 0
+        ) {
+          cellTags.push(cell.metadata.tags);
+        }
+      }
+
       this.cellTags = cellTags;
 
+      this.notebookName = notebook.metadata.lectureName || fileName;
+      this.displayMsg = this.notebookName;
+
+      this.GetExecutionData(this.cellTags);
+    },
+
+    GetExecutionData(cellTags) {
       this.ajaxPending = true;
 
       this.cellTagsInitial = [];
@@ -144,10 +201,11 @@ export default {
             ---- Double click to refresh current notebook 
             -->
             <NoteBookReader
-              @notebook-loaded="GetExecutionData"
+              :p_displayMsg="displayMsg"
+              @notebook-loaded="ParseNotebookCells"
               @dblclick="
                 if (this.notebook != null && this.cellTags.length > 0)
-                  GetExecutionData(this.notebook, this.cellTags);
+                  ParseNotebookCells(this.notebook, this.cellTags);
               "
             />
           </pane>
@@ -248,7 +306,7 @@ export default {
   </main>
 </template>
 
-<style>
+<style scoped>
 /*
 @import "./assets/base.css";
 */
@@ -257,6 +315,7 @@ export default {
 /* width */
 ::-webkit-scrollbar {
   width: 5px !important;
+  height: 5px !important;
 }
 
 /* Track */

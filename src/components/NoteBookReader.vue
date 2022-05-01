@@ -7,12 +7,14 @@
     "
     @dragleave="(event) => (event.target.style.background = '')"
   >
-    {{ displayMsg }}
+    {{ p_displayMsg || displayMsg }}
   </div>
 </template>
 
 <script>
 export default {
+  props: ["p_displayMsg"],
+
   data() {
     return {
       displayMsg: "ipynbをここにドラッグ",
@@ -42,54 +44,9 @@ export default {
         return;
       }
 
-      /**
-       ** cell checks
-       */
-      let flag_noTags = true;
-      let flag_noCodeCell = true;
-
-      // no cell
-      if (!notebook.cells || notebook.cells.length == 0) {
-        this.displayMsg = "ipynbファイルにはコードセルがありません";
-        return;
-      }
-
-      // no code cell or no tags
-      for (let i = 0; i < notebook.cells.length; i++) {
-        const cell = notebook.cells[i];
-        if (cell.cell_type == "code") {
-          flag_noCodeCell = false;
-        }
-        if (cell.metadata.tags && cell.metadata.tags.length > 0) {
-          flag_noTags = false;
-        }
-      }
-      if (flag_noCodeCell) {
-        this.displayMsg = "ipynbファイルにはコードセルがありません";
-        return;
-      }
-      if (flag_noTags) {
-        this.displayMsg = "ipynbファイルにはタグがありません";
-        return;
-      }
-
-      // Cache all cell tags
-      let cellTags = [];
-      for (let i = 0; i < notebook.cells.length; i++) {
-        const cell = notebook.cells[i];
-
-        if (
-          cell.cell_type == "code" &&
-          cell.metadata.tags &&
-          cell.metadata.tags.length > 0
-        ) {
-          cellTags.push(cell.metadata.tags);
-        }
-      }
-
-      this.notebookName = notebook.metadata.lectureName || fileName;
-      this.displayMsg = this.notebookName;
-      this.$emit("notebookLoaded", notebook, cellTags);
+      this.displayMsg = fileName;
+      this.$emit("notebookLoaded", notebook, fileName);
+      return;
     },
   },
 };
