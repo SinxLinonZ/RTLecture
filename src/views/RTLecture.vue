@@ -22,6 +22,7 @@ export default {
   data() {
     return {
       APIEndpoint: {
+        ws: "ws://localhost:3000/",
         host: "http://localhost:3000/",
         executions: "api/executions",
       },
@@ -31,6 +32,7 @@ export default {
 
       fileName: "",
       notebook: null,
+      cellNameMap: null,
       cellTags: [],
       cellTagsInitial: [],
       students: {},
@@ -41,6 +43,16 @@ export default {
   },
 
   methods: {
+    InitStudent(username) {
+      this.students[username] = {
+        __lastExecution: null,
+        executions: {},
+      };
+      for (const tagInitial of this.cellTagsInitial) {
+        this.students[username]["executions"][tagInitial] = [];
+      }
+    },
+
     ParseNotebookCells(notebook, fileName, success) {
       this.notebook = notebook;
       this.fileName = fileName;
@@ -94,8 +106,10 @@ export default {
       }
 
       this.cellTags = cellTags;
-
       this.notebookName = notebook.metadata.lectureName || fileName;
+      // TODO: fetch from server if no cell name map in current notebook
+      this.cellNameMap = notebook.metadata.cellNameMap;
+
       this.displayMsg = this.notebookName;
 
       this.GetExecutionData(this.cellTags);
@@ -127,14 +141,7 @@ export default {
             for (const execution of executions) {
               // Init student if not exist
               if (!this.students[execution.username]) {
-                this.students[execution.username] = {
-                  __lastExecution: null,
-                  executions: {},
-                };
-                for (const tagInitial of this.cellTagsInitial) {
-                  this.students[execution.username]["executions"][tagInitial] =
-                    [];
-                }
+                this.InitStudent(execution.username);
               }
 
               this.students[execution.username]["executions"][cellTag].push(
@@ -157,8 +164,7 @@ export default {
         this.ws.close();
       }
 
-      // this.ws = new WebSocket(`ws://${location.host}/`);
-      this.ws = new WebSocket(`ws://localhost:3000/`);
+      this.ws = new WebSocket(this.APIEndpoint.ws);
       const self = this;
       self.ws.onopen = function () {
         self.ws.send(
@@ -176,10 +182,7 @@ export default {
 
         // Init student if not exist
         if (!self.students[data.username]) {
-          self.students[data.username] = {};
-          for (const tagInitial of self.cellTagsInitial) {
-            self.students[data.username][tagInitial] = [];
-          }
+          self.InitStudent(data.username);
         }
 
         // Add execution to student
@@ -207,7 +210,7 @@ export default {
               @notebook-loaded="ParseNotebookCells"
               @dblclick="
                 if (this.notebook != null && this.cellTags.length > 0)
-                  ParseNotebookCells(this.notebook, this.cellTags);
+                  ParseNotebookCells(this.notebook, this.filename, true);
               "
             />
           </pane>
@@ -279,6 +282,7 @@ export default {
                 >
                   <CellButton
                     v-for="cellTag of cellTagsInitial"
+                    :cellNameMap="cellNameMap"
                     :cellTag="cellTag"
                     :key="cellTag"
                     :currentStudentExecutions="currentStudentExecutions"

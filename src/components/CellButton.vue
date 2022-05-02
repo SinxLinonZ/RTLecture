@@ -1,6 +1,6 @@
 <script>
 export default {
-  props: ["cellTag", "currentStudentExecutions"],
+  props: ["cellTag", "cellNameMap", "currentStudentExecutions"],
   computed: {
     cellStatus() {
       if (!this.currentStudentExecutions) return [];
@@ -22,7 +22,7 @@ export default {
 
 <template>
   <div class="ui segment inverted" :class="cellStatus">
-    <p>{{ cellTag }}</p>
+    <p>{{ cellNameMap[cellTag] }}</p>
   </div>
 </template>
 

@@ -64,11 +64,26 @@ export default {
         cell.outputs = [];
       }
 
+      this.notebook.metadata.cellNameMap = cellNameMap;
+
       // sign the notebook
       delete this.notebook.metadata.lectureSignature;
       this.notebook.metadata.lectureSignature = md5(
         JSON.stringify(this.notebook)
       );
+
+      // save the notebook
+      let element = document.createElement("a");
+      element.setAttribute(
+        "href",
+        "data:text/plain;charset=utf-8," +
+          encodeURIComponent(JSON.stringify(this.notebook))
+      );
+      element.setAttribute("download", this.displayMsg);
+      element.style.display = "none";
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
     },
 
     InitNotebook(notebook, fileName, success) {
@@ -86,7 +101,8 @@ export default {
         if (cell.cell_type != "code") continue;
 
         if (!cell.metadata) cell.metadata = {};
-        if (!cell.metadata.targetCell) cell.metadata.targetCell = true;
+        if (typeof cell.metadata.targetCell != "boolean")
+          cell.metadata.targetCell = true;
         if (!cell.metadata.tags) cell.metadata.tags = [];
         if (!cell.metadata.displayName) cell.metadata.displayName = "";
         if (!cell.metadata.judge) cell.metadata.judge = {};
@@ -145,13 +161,10 @@ export default {
                   type="submit"
                   @click="GenerateNotebook"
                 >
-                  Submit
+                  保存
                 </button>
               </div>
             </div>
-            <!-- DEBUG -->
-            <pre>{{ notebook }}</pre>
-            <!-- END OF DEBUG -->
           </div>
         </pane>
       </splitpanes>
