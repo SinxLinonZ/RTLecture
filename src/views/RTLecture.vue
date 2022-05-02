@@ -41,10 +41,12 @@ export default {
   },
 
   methods: {
-    ParseNotebookCells(notebook, fileName) {
+    ParseNotebookCells(notebook, fileName, success) {
       this.notebook = notebook;
       this.fileName = fileName;
       this.displayMsg = "";
+
+      if (!success) return;
 
       /**
        ** cell checks

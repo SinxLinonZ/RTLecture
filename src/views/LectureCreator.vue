@@ -4,6 +4,8 @@ import "splitpanes/dist/splitpanes.css";
 import { Splitpanes, Pane } from "splitpanes";
 import "highlight.js/styles/monokai.css";
 import Markdown from "vue3-markdown-it";
+import { v4 } from "uuid";
+import md5 from "md5";
 import NoteBookReader from "@/components/NoteBookReader.vue";
 
 export default {
@@ -14,6 +16,31 @@ export default {
     NoteBookReader,
   },
 
+  computed: {
+    validTargetCells() {
+      if (!this.notebook) return false;
+
+      const targetCells = this.notebook.cells.filter((cell) => {
+        return cell.cell_type == "code" && cell.metadata.targetCell == true;
+      });
+
+      for (const cell of targetCells) {
+        if (cell.metadata.displayName == "") return false;
+        if (cell.metadata.judge.type == "") return false;
+
+        // No matching/callback data
+        if (
+          cell.metadata.judge.type == "fullMatch" ||
+          cell.metadata.judge.type == "callback"
+        ) {
+          if (cell.metadata.judge.data == "") return false;
+        }
+      }
+
+      return true;
+    },
+  },
+
   data() {
     return {
       notebook: null,
@@ -22,7 +49,33 @@ export default {
   },
 
   methods: {
-    InitNotebook(notebook, fileName) {
+    GenerateNotebook() {
+      let cellNameMap = {};
+
+      for (let cell of this.notebook.cells) {
+        if (cell.cell_type != "code" || !cell.metadata.targetCell) continue;
+
+        let uuid = v4();
+        cell.metadata.tags = [uuid];
+        cellNameMap[uuid] = cell.metadata.displayName;
+
+        // clear all cell status
+        cell.execution_count = null;
+        cell.outputs = [];
+      }
+
+      // sign the notebook
+      delete this.notebook.metadata.lectureSignature;
+      this.notebook.metadata.lectureSignature = md5(
+        JSON.stringify(this.notebook)
+      );
+    },
+
+    InitNotebook(notebook, fileName, success) {
+      this.displayMsg = "";
+      this.notebook = null;
+      if (!success) return;
+
       // Init notebook metadata
       if (!notebook.metadata) notebook.metadata = {};
       if (!notebook.metadata.lectureName) notebook.metadata.lectureName = "";
@@ -33,7 +86,7 @@ export default {
         if (cell.cell_type != "code") continue;
 
         if (!cell.metadata) cell.metadata = {};
-        if (!cell.metadata.targetCell) cell.metadata.targetCell = false;
+        if (!cell.metadata.targetCell) cell.metadata.targetCell = true;
         if (!cell.metadata.tags) cell.metadata.tags = [];
         if (!cell.metadata.displayName) cell.metadata.displayName = "";
         if (!cell.metadata.judge) cell.metadata.judge = {};
@@ -86,14 +139,19 @@ export default {
                   :class="{
                     disabled:
                       !notebook.metadata.lectureName ||
-                      !notebook.metadata.lecturerName,
+                      !notebook.metadata.lecturerName ||
+                      validTargetCells == 0,
                   }"
                   type="submit"
+                  @click="GenerateNotebook"
                 >
                   Submit
                 </button>
               </div>
             </div>
+            <!-- DEBUG -->
+            <pre>{{ notebook }}</pre>
+            <!-- END OF DEBUG -->
           </div>
         </pane>
       </splitpanes>
@@ -162,11 +220,18 @@ export default {
               </div>
               <div
                 class="six wide field"
-                v-show="cell.metadata.judge.type == 'callback'"
+                v-show="
+                  cell.metadata.judge.type == 'callback' ||
+                  cell.metadata.judge.type == 'fullMatch'
+                "
               >
                 <textarea
                   v-model="cell.metadata.judge.data"
-                  placeholder="カスタマイズ関数"
+                  :placeholder="
+                    cell.metadata.judge.type == 'callback'
+                      ? 'カスタマイズ関数'
+                      : 'マッチング文字列'
+                  "
                   rows="1"
                 />
               </div>

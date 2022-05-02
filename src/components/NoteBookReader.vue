@@ -41,11 +41,12 @@ export default {
         notebook = JSON.parse(string);
       } catch (e) {
         this.displayMsg = "ipynbファイルが不正です";
+        this.$emit("notebookLoaded", null, null, false);
         return;
       }
 
       this.displayMsg = fileName;
-      this.$emit("notebookLoaded", notebook, fileName);
+      this.$emit("notebookLoaded", notebook, fileName, true);
       return;
     },
   },
