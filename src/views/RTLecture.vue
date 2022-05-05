@@ -42,6 +42,11 @@ export default {
     };
   },
 
+  mounted() {
+    // eslint-disable-next-line no-undef
+    $(".menu .item").tab();
+  },
+
   methods: {
     InitStudent(username) {
       this.students[username] = {
@@ -297,16 +302,25 @@ export default {
 
       <!-- Right -->
       <pane size="75" style="overflow: scroll">
-        <template v-if="currentCell.length > 0">
-          <CellExecution
-            v-for="execution of currentCell.slice().reverse()"
-            :key="execution._id"
-            :execution="execution"
-          />
-        </template>
-        <h1 v-else style="text-align: center">
-          No cell selected or no execution record
-        </h1>
+        <div class="ui pointing secondary menu">
+          <a class="item active" data-tab="singleStudent">Current student</a>
+          <a class="item" data-tab="chart_xxx">chart</a>
+        </div>
+
+        <div class="ui active tab" data-tab="singleStudent">
+          <template v-if="currentCell.length > 0">
+            <CellExecution
+              v-for="execution of currentCell.slice().reverse()"
+              :key="execution._id"
+              :execution="execution"
+            />
+          </template>
+          <h1 v-else style="text-align: center; padding-top: 1em">
+            No cell selected or no execution record
+          </h1>
+        </div>
+
+        <div class="ui tab" data-tab="chart_xxx">chart</div>
       </pane>
     </splitpanes>
   </main>
