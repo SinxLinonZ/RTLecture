@@ -113,6 +113,15 @@ export default {
       this.notebook = notebook;
       this.displayMsg = fileName;
     },
+
+    AutoTagging() {
+      let i = 1;
+      for (const cell of this.notebook.cells) {
+        if (!cell.metadata.targetCell || !cell.cell_type == "code") continue;
+        cell.metadata.displayName = String(i);
+        i++;
+      }
+    },
   },
 };
 </script>
@@ -164,6 +173,12 @@ export default {
                   保存
                 </button>
               </div>
+
+              <hr />
+
+              <button class="ui button secondary" @click="AutoTagging">
+                自動タグ付け
+              </button>
             </div>
           </div>
         </pane>
