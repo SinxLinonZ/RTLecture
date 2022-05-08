@@ -7,7 +7,7 @@
     "
     @dragleave="(event) => (event.target.style.background = '')"
   >
-    {{ p_displayMsg || displayMsg }}
+    {{ displayMsg }}
   </div>
 </template>
 
