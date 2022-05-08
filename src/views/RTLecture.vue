@@ -114,11 +114,10 @@ export default {
       }
 
       this.cellTags = cellTags;
-      this.notebookName = notebook.metadata.lectureName || fileName;
       // TODO: fetch from server if no cell name map in current notebook
       this.cellNameMap = notebook.metadata.cellNameMap;
 
-      this.displayMsg = this.notebookName;
+      this.displayMsg = notebook.metadata.lectureName || fileName;
 
       this.GetExecutionData(this.cellTags);
     },
