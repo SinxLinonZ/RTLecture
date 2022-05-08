@@ -45,6 +45,9 @@ export default {
     return {
       notebook: null,
       displayMsg: "ここにNotebookをドロップ",
+
+      // Auto naming
+      cellNameInitial: "",
     };
   },
 
@@ -114,12 +117,49 @@ export default {
       this.displayMsg = fileName;
     },
 
-    AutoTagging() {
+    /**
+     * Features
+     */
+    AutoNaming() {
+      let targetCells = this.notebook.cells.filter((cell) => {
+        return cell.cell_type == "code" && cell.metadata.targetCell == true;
+      });
+
       let i = 1;
-      for (const cell of this.notebook.cells) {
-        if (!cell.metadata.targetCell || !cell.cell_type == "code") continue;
-        cell.metadata.displayName = String(i);
+      for (let cell of targetCells) {
+        cell.metadata.displayName = this.cellNameInitial + i;
         i++;
+      }
+    },
+
+    SetAllJudgeTo(e) {
+      const targetValue = e.target.value;
+
+      let targetCells = this.notebook.cells.filter((cell) => {
+        return cell.cell_type == "code" && cell.metadata.targetCell == true;
+      });
+      for (let cell of targetCells) {
+        cell.metadata.judge.type = targetValue;
+      }
+
+      // reset global setter value
+      e.target.value = "";
+    },
+
+    EnableTargetAll() {
+      let targetCells = this.notebook.cells.filter((cell) => {
+        return cell.cell_type == "code";
+      });
+      for (let cell of targetCells) {
+        cell.metadata.targetCell = true;
+      }
+    },
+    DisableTargetAll() {
+      let targetCells = this.notebook.cells.filter((cell) => {
+        return cell.cell_type == "code";
+      });
+      for (let cell of targetCells) {
+        cell.metadata.targetCell = false;
       }
     },
   },
@@ -141,6 +181,8 @@ export default {
             v-if="notebook"
             style="height: 100%; overflow: scroll; padding: 1em"
           >
+            <h3>教材設定</h3>
+
             <div class="ui form">
               <div class="field">
                 <label>授業名</label>
@@ -174,11 +216,69 @@ export default {
                 </button>
               </div>
 
+              <!-- 
+              --- Feature area
+              -->
               <hr />
+              <h3>一括設定</h3>
 
-              <button class="ui button secondary" @click="AutoTagging">
-                自動タグ付け
-              </button>
+              <!-- One-click set judge -->
+              <div class="field">
+                <label>対象セル設定</label>
+              </div>
+              <div class="inline field">
+                <button class="ui button positive" @click="EnableTargetAll">
+                  全部ON
+                </button>
+                <button class="ui button negative" @click="DisableTargetAll">
+                  全部OFF
+                </button>
+              </div>
+
+              <!-- Auto naming -->
+              <div class="field">
+                <label>自動セル名付け</label>
+                <input
+                  type="text"
+                  placeholder="セル名イニシャル"
+                  v-model="cellNameInitial"
+                />
+              </div>
+              <div class="field" style="text-align: right">
+                <button class="ui button secondary" @click="AutoNaming">
+                  付ける
+                </button>
+              </div>
+
+              <!-- One-click set judge -->
+              <div class="field">
+                <label>判断方法設定</label>
+                <select @change="SetAllJudgeTo">
+                  <option selected disabled value="">
+                    -- 判断方法を選択 --
+                  </option>
+                  <option value="execResult">実行成功</option>
+                  <option value="fullMatch">完全マッチング</option>
+                  <option value="callback">カスタマイズ関数</option>
+                </select>
+              </div>
+
+              <!-- 
+              --- Medatada
+              -->
+              <hr />
+              <h3>教材情報</h3>
+              <div class="field">
+                <label>シグネチャー</label>
+                <input
+                  class="transparent"
+                  type="text"
+                  style="padding-top: 0"
+                  readonly
+                  placeholder="シグネチャー"
+                  v-model="notebook.metadata.lectureSignature"
+                />
+              </div>
             </div>
           </div>
         </pane>
