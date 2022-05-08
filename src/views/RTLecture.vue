@@ -22,8 +22,8 @@ export default {
   data() {
     return {
       APIEndpoint: {
-        ws: `ws://172.18.1.201:3000/`,
-        host: "http://172.18.1.201:3000/",
+        ws: `ws://${window.location.hostname}:3000/`,
+        host: `http://${window.location.hostname}:3000/`,
         executions: "api/executions",
       },
 
