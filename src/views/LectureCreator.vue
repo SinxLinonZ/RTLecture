@@ -92,7 +92,10 @@ export default {
     InitNotebook(notebook, fileName, success) {
       this.displayMsg = "";
       this.notebook = null;
-      if (!success) return;
+      if (!success) {
+        this.displayMsg = "ipynbファイルが不正です";
+        return;
+      }
 
       // Init notebook metadata
       if (!notebook.metadata) notebook.metadata = {};
@@ -172,7 +175,7 @@ export default {
       <splitpanes horizontal class="default-theme">
         <pane size="10">
           <NoteBookReader
-            :p_displayMsg="displayMsg"
+            :displayMsg="displayMsg"
             @notebook-loaded="InitNotebook"
           />
         </pane>

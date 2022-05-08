@@ -28,7 +28,7 @@ export default {
       },
 
       ajaxPending: false,
-      displayMsg: "",
+      displayMsg: "ipynbをここにドラッグ",
 
       fileName: "",
       notebook: null,
@@ -63,7 +63,10 @@ export default {
       this.fileName = fileName;
       this.displayMsg = "";
 
-      if (!success) return;
+      if (!success) {
+        this.displayMsg = "ipynbファイルが不正です";
+        return;
+      }
 
       /**
        ** cell checks
@@ -211,7 +214,7 @@ export default {
             ---- Double click to refresh current notebook 
             -->
             <NoteBookReader
-              :p_displayMsg="displayMsg"
+              :displayMsg="displayMsg"
               @notebook-loaded="ParseNotebookCells"
               @dblclick="
                 if (this.notebook != null && this.cellTags.length > 0)
