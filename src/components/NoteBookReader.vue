@@ -15,12 +15,6 @@
 export default {
   props: ["displayMsg"],
 
-  data() {
-    return {
-      notebookName: "",
-    };
-  },
-
   methods: {
     getFile(ev) {
       ev.target.style.background = "";
