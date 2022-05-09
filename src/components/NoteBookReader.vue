@@ -7,20 +7,13 @@
     "
     @dragleave="(event) => (event.target.style.background = '')"
   >
-    {{ p_displayMsg || displayMsg }}
+    {{ displayMsg }}
   </div>
 </template>
 
 <script>
 export default {
-  props: ["p_displayMsg"],
-
-  data() {
-    return {
-      displayMsg: "ipynbをここにドラッグ",
-      notebookName: "",
-    };
-  },
+  props: ["displayMsg"],
 
   methods: {
     getFile(ev) {
@@ -40,12 +33,10 @@ export default {
       try {
         notebook = JSON.parse(string);
       } catch (e) {
-        this.displayMsg = "ipynbファイルが不正です";
         this.$emit("notebookLoaded", null, null, false);
         return;
       }
 
-      this.displayMsg = fileName;
       this.$emit("notebookLoaded", notebook, fileName, true);
       return;
     },

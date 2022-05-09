@@ -59,7 +59,7 @@ export default {
         if (cell.cell_type != "code" || !cell.metadata.targetCell) continue;
 
         let uuid = v4();
-        cell.metadata.tags = [uuid];
+        cell.metadata.RTL_UUID = uuid;
         cellNameMap[uuid] = cell.metadata.displayName;
 
         // clear all cell status
@@ -92,7 +92,10 @@ export default {
     InitNotebook(notebook, fileName, success) {
       this.displayMsg = "";
       this.notebook = null;
-      if (!success) return;
+      if (!success) {
+        this.displayMsg = "ipynbファイルが不正です";
+        return;
+      }
 
       // Init notebook metadata
       if (!notebook.metadata) notebook.metadata = {};
@@ -106,7 +109,6 @@ export default {
         if (!cell.metadata) cell.metadata = {};
         if (typeof cell.metadata.targetCell != "boolean")
           cell.metadata.targetCell = true;
-        if (!cell.metadata.tags) cell.metadata.tags = [];
         if (!cell.metadata.displayName) cell.metadata.displayName = "";
         if (!cell.metadata.judge) cell.metadata.judge = {};
         if (!cell.metadata.judge.type) cell.metadata.judge.type = "";
@@ -172,7 +174,7 @@ export default {
       <splitpanes horizontal class="default-theme">
         <pane size="10">
           <NoteBookReader
-            :p_displayMsg="displayMsg"
+            :displayMsg="displayMsg"
             @notebook-loaded="InitNotebook"
           />
         </pane>
