@@ -204,7 +204,7 @@ export default {
               :displayMsg="displayMsg"
               @notebook-loaded="ParseNotebookCells"
               @dblclick="
-                if (this.notebook != null && this.uuidList > 0)
+                if (this.notebook != null && this.uuidList.length > 0)
                   ParseNotebookCells(this.notebook, this.filename, true);
               "
             />
