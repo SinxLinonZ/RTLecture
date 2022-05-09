@@ -33,12 +33,12 @@ export default {
       fileName: "",
       notebook: null,
       cellNameMap: null,
-      cellTags: [],
-      cellTagsInitial: [],
       students: {},
       currentStudentExecutions: null,
       currentCell: [],
       ws: null,
+
+      uuidList: [],
     };
   },
 
@@ -53,8 +53,8 @@ export default {
         __lastExecution: null,
         executions: {},
       };
-      for (const tagInitial of this.cellTagsInitial) {
-        this.students[username]["executions"][tagInitial] = [];
+      for (const uuid of this.uuidList) {
+        this.students[username]["executions"][uuid] = [];
       }
     },
 
@@ -71,7 +71,7 @@ export default {
       /**
        ** cell checks
        */
-      let flag_noTags = true;
+      let flag_noUuids = true;
       let flag_noCodeCell = true;
 
       // no cell
@@ -80,78 +80,66 @@ export default {
         return;
       }
 
-      // no code cell or no tags
+      // no code cells or no uuids
       for (let i = 0; i < notebook.cells.length; i++) {
         const cell = notebook.cells[i];
         if (cell.cell_type == "code") {
           flag_noCodeCell = false;
         }
-        if (cell.metadata.tags && cell.metadata.tags.length > 0) {
-          flag_noTags = false;
+        if (cell.metadata.RTL_UUID) {
+          flag_noUuids = false;
         }
       }
       if (flag_noCodeCell) {
         this.displayMsg = "ipynbファイルにはコードセルがありません";
         return;
       }
-      if (flag_noTags) {
-        this.displayMsg = "ipynbファイルにはタグがありません";
+      if (flag_noUuids) {
+        this.displayMsg = "ipynbファイルには対象セルがありません";
         return;
       }
 
-      // Cache all cell tags
-      let cellTags = [];
+      // Cache all cell uuids
+      this.uuidList = [];
       for (let i = 0; i < notebook.cells.length; i++) {
         const cell = notebook.cells[i];
 
-        if (
-          cell.cell_type == "code" &&
-          cell.metadata.tags &&
-          cell.metadata.tags.length > 0
-        ) {
-          cellTags.push(cell.metadata.tags);
+        if (cell.cell_type == "code" && cell.metadata.RTL_UUID) {
+          this.uuidList.push(cell.metadata.RTL_UUID);
         }
       }
 
-      this.cellTags = cellTags;
       // TODO: fetch from server if no cell name map in current notebook
       this.cellNameMap = notebook.metadata.cellNameMap;
-
       this.displayMsg = notebook.metadata.lectureName || fileName;
 
-      this.GetExecutionData(this.cellTags);
+      this.GetExecutionData(this.uuidList);
     },
 
-    GetExecutionData(cellTags) {
+    GetExecutionData(uuidList) {
       this.ajaxPending = true;
 
-      this.cellTagsInitial = [];
       this.students = {};
       this.currentStudentExecutions = null;
       this.currentCell = [];
 
       axios
         .post(this.APIEndpoint.host + this.APIEndpoint.executions, {
-          tags: cellTags,
+          uuidList: uuidList,
         })
         .then((response) => {
           const data = response.data;
 
-          // Cache tag initial list
-          for (const cellTag in data) {
-            this.cellTagsInitial.push(cellTag);
-          }
-
           // Initialize all students data
-          for (const cellTag in data) {
-            const executions = data[cellTag];
+          for (const uuid in data) {
+            const executions = data[uuid];
             for (const execution of executions) {
               // Init student if not exist
               if (!this.students[execution.username]) {
                 this.InitStudent(execution.username);
               }
 
-              this.students[execution.username]["executions"][cellTag].push(
+              this.students[execution.username]["executions"][uuid].push(
                 execution
               );
             }
@@ -178,23 +166,23 @@ export default {
           JSON.stringify({
             type: "subscribe",
             data: {
-              cellTagsInitial: self.cellTagsInitial,
+              uuidList: self.uuidList,
             },
           })
         );
       };
 
       self.ws.onmessage = function (event) {
-        let data = JSON.parse(event.data);
+        let msg = JSON.parse(event.data);
 
         // Init student if not exist
-        if (!self.students[data.username]) {
-          self.InitStudent(data.username);
+        if (!self.students[msg.username]) {
+          self.InitStudent(msg.username);
         }
 
         // Add execution to student
-        self.students[data.username]["executions"][data.tags[0]].push(data);
-        self.students[data.username].__lastExecution = data;
+        self.students[msg.username]["executions"][msg.uuid].push(msg);
+        self.students[msg.username].__lastExecution = msg;
       };
     },
   },
@@ -216,7 +204,7 @@ export default {
               :displayMsg="displayMsg"
               @notebook-loaded="ParseNotebookCells"
               @dblclick="
-                if (this.notebook != null && this.cellTags.length > 0)
+                if (this.notebook != null && this.uuidList > 0)
                   ParseNotebookCells(this.notebook, this.filename, true);
               "
             />
@@ -261,7 +249,7 @@ export default {
                   :username="student"
                   :executions="property.executions"
                   :key="student"
-                  :cellTagsInitial="cellTagsInitial"
+                  :uuidList="uuidList"
                   :lastExecution="students[student].__lastExecution"
                   @click="
                     currentStudentExecutions = students[student].executions
@@ -288,12 +276,12 @@ export default {
                   class="ui basic segments"
                 >
                   <CellButton
-                    v-for="cellTag of cellTagsInitial"
+                    v-for="uuid of uuidList"
                     :cellNameMap="cellNameMap"
-                    :cellTag="cellTag"
-                    :key="cellTag"
+                    :uuid="uuid"
+                    :key="uuid"
                     :currentStudentExecutions="currentStudentExecutions"
-                    @click="currentCell = currentStudentExecutions[cellTag]"
+                    @click="currentCell = currentStudentExecutions[uuid]"
                   />
                 </div>
               </pane>

@@ -1,38 +1,27 @@
 <script>
 export default {
-  props: ["username", "executions", "cellTagsInitial", "lastExecution"],
+  props: ["username", "executions", "uuidList", "lastExecution"],
 
   computed: {
     progress() {
       let success = 0;
       // Get success & failed cells
-      for (const cellTag in this.executions) {
-        let cellExecutions = this.executions[cellTag];
+      for (const uuid in this.executions) {
+        let cellExecutions = this.executions[uuid];
         let succeedCount = cellExecutions.filter(
           (e) => e.result == "ok"
         ).length;
         if (succeedCount > 0) success++;
       }
 
-      return Math.floor((success / this.cellTagsInitial.length) * 100);
+      return Math.floor((success / this.uuidList.length) * 100);
     },
 
     currentPosition() {
-      // let latest = -1;
-
-      // for (const cellTag in this.executions) {
-      //   if (this.executions[cellTag].length > 0) {
-      //     latest = cellTag;
-      //   }
-      // }
-
-      // let index = this.cellTagsInitial.indexOf(latest) + 1;
-      // return Math.floor((index / this.cellTagsInitial.length) * 100);
-
       if (this.lastExecution) {
         return Math.floor(
-          ((this.cellTagsInitial.indexOf(this.lastExecution.tags[0]) + 1) /
-            this.cellTagsInitial.length) *
+          ((this.uuidList.indexOf(this.lastExecution.uuid) + 1) /
+            this.uuidList.length) *
             100
         );
       } else {
