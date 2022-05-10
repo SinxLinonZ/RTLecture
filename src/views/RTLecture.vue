@@ -4,6 +4,29 @@ import "splitpanes/dist/splitpanes.css";
 import { Splitpanes, Pane } from "splitpanes";
 import "xterm/css/xterm.css";
 
+import { use } from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
+import { BarChart, ScatterChart } from "echarts/charts";
+import {
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  TitleComponent,
+  DataZoomComponent,
+} from "echarts/components";
+import VChart, { THEME_KEY } from "vue-echarts";
+
+use([
+  CanvasRenderer,
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  TitleComponent,
+  DataZoomComponent,
+  BarChart,
+  ScatterChart,
+]);
+
 import NoteBookReader from "@/components/NoteBookReader.vue";
 import StudentButton from "@/components/StudentButton.vue";
 import CellButton from "@/components/CellButton.vue";
@@ -17,6 +40,236 @@ export default {
     StudentButton,
     CellButton,
     CellExecution,
+    VChart,
+  },
+
+  provide: {
+    [THEME_KEY]: "dark",
+  },
+
+  computed: {
+    chartOptions() {
+      let cellNameList = [];
+      let executionList = [];
+      let errorList = [];
+
+      // Getting all cell names
+      for (const uuid in this.cellNameMap) {
+        cellNameList.push(this.cellNameMap[uuid]);
+      }
+      cellNameList.reverse();
+
+      // Getting all executions
+      for (const studentName in this.students) {
+        let student = this.students[studentName];
+        for (const uuid in student.executions) {
+          for (const execution of student.executions[uuid]) {
+            executionList.push(execution);
+
+            // Getting all errors
+            if (execution.result == "ok") {
+              if (errorList.indexOf("ok") == -1) {
+                errorList.push("ok");
+              }
+            } else {
+              if (errorList.indexOf(execution.errName) == -1) {
+                errorList.push(execution.errName);
+              }
+            }
+          }
+        }
+      }
+
+      let option = {};
+      let errorCellCountMap = {};
+      let executionTotalSummary = {};
+      let executionTotalSummarySeries = {};
+
+      /*
+       * Loop all executions
+       */
+      for (const execution of executionList) {
+        // cell_error
+        let errName = execution.errName;
+        let uuid = execution.uuid;
+        if (execution.result == "error") {
+          if (!errorCellCountMap[errName]) errorCellCountMap[errName] = {};
+          if (!errorCellCountMap[errName][this.cellNameMap[uuid]])
+            errorCellCountMap[errName][this.cellNameMap[uuid]] = 0;
+          errorCellCountMap[errName][this.cellNameMap[uuid]]++;
+        } else {
+          if (!errorCellCountMap["ok"]) errorCellCountMap["ok"] = {};
+          if (!errorCellCountMap["ok"][this.cellNameMap[uuid]])
+            errorCellCountMap["ok"][this.cellNameMap[uuid]] = 0;
+          errorCellCountMap["ok"][this.cellNameMap[uuid]]++;
+        }
+        // end of cell_error
+      }
+
+      // total_progress
+      // end of total_progress
+
+      // cell_error
+      option.cell_error = {
+        tooltip: {
+          trigger: "axis",
+          axisPointer: {
+            type: "shadow",
+          },
+        },
+        legend: {},
+        grid: {
+          left: "3%",
+          right: "4%",
+          bottom: "3%",
+          containLabel: true,
+        },
+        xAxis: {
+          type: "value",
+        },
+        yAxis: {
+          type: "category",
+          data: cellNameList,
+        },
+        series: [],
+        animationDuration: 400,
+        animationDurationUpdate: 100,
+      };
+      for (const errName of errorList) {
+        let cell_error_series = {
+          name: errName,
+          type: "bar",
+          stack: "total",
+          label: {
+            show: true,
+          },
+          emphasis: {
+            focus: "series",
+          },
+          data: [],
+        };
+
+        for (const cellName of cellNameList) {
+          if (errorCellCountMap[errName][cellName]) {
+            cell_error_series.data.push(errorCellCountMap[errName][cellName]);
+          } else {
+            cell_error_series.data.push(0);
+          }
+        }
+        option.cell_error.series.push(cell_error_series);
+      }
+
+      // total_progress
+      option.total_progress = {
+        title: {
+          text: "Total progress summary",
+          left: "5%",
+          top: "3%",
+        },
+        legend: {
+          right: "10%",
+          top: "3%",
+          data: [],
+        },
+        grid: {
+          left: "8%",
+          top: "10%",
+        },
+        xAxis: {
+          type: "time",
+        },
+        yAxis: {
+          type: "category",
+          data: cellNameList,
+          splitLine: {
+            show: true,
+          },
+        },
+        series: [],
+        color: [],
+        dataZoom: [
+          {
+            type: "slider",
+          },
+        ],
+        animationDuration: 400,
+        animationDurationUpdate: 100,
+      };
+
+      for (const errName of errorList) {
+        option.total_progress.legend.data.push(errName);
+        executionTotalSummary[errName] = [];
+
+        let total_progress_series = {
+          name: errName,
+          data: [],
+          type: "scatter",
+          symbolSize: function (data) {
+            // return Math.sqrt(data[2]) / 5e2;
+            return data[2] * 15;
+          },
+          emphasis: {
+            focus: "series",
+            label: {
+              show: true,
+              formatter: function (param) {
+                return param.data[3];
+              },
+              position: "top",
+            },
+          },
+          itemStyle: {
+            shadowBlur: 10,
+            shadowColor: "rgba(25, 100, 150, 0.5)",
+            shadowOffsetY: 5,
+            color: errName == "ok" ? "rgba(0, 158, 0, 0.5)" : undefined,
+          },
+        };
+        executionTotalSummarySeries[errName] = total_progress_series;
+      }
+
+      for (const execution of executionList) {
+        let errName = execution.result == "ok" ? "ok" : execution.errName;
+        let data = [
+          execution.date,
+          this.cellNameMap[execution.uuid],
+          1,
+          execution.username +
+            "\n" +
+            execution.errName +
+            "\n" +
+            execution.errValue,
+          errName,
+        ];
+        executionTotalSummary[errName].push(data);
+      }
+
+      for (const errName in executionTotalSummary) {
+        executionTotalSummarySeries[errName].data =
+          executionTotalSummary[errName];
+      }
+      option.total_progress.series = Object.values(executionTotalSummarySeries);
+
+      return option;
+    },
+
+    ErrorCountMap() {
+      let errorCountMap = {};
+
+      for (const studentName in this.students) {
+        const student = this.students[studentName];
+        for (const uuid in student.executions) {
+          const executions = student.executions[uuid];
+          for (const execution of executions) {
+            if (execution.result == "error") {
+              if (!errorCountMap[uuid]) errorCountMap[uuid] = 0;
+              errorCountMap[uuid]++;
+            }
+          }
+        }
+      }
+      return errorCountMap;
+    },
   },
 
   data() {
@@ -32,13 +285,17 @@ export default {
 
       fileName: "",
       notebook: null,
+      uuidList: [],
       cellNameMap: null,
       students: {},
-      currentStudentExecutions: null,
-      currentCell: [],
+
       ws: null,
 
-      uuidList: [],
+      // Status management
+      currentStudentName: null,
+      currentStudentExecutions: null,
+      currentCellName: null,
+      currentCell: [],
     };
   },
 
@@ -117,11 +374,16 @@ export default {
     },
 
     GetExecutionData(uuidList) {
+      // this.RegisterSubscription();
+      // return;
+
       this.ajaxPending = true;
 
       this.students = {};
       this.currentStudentExecutions = null;
+      this.currentStudentName = null;
       this.currentCell = [];
+      this.currentCellName = null;
 
       axios
         .post(this.APIEndpoint.host + this.APIEndpoint.executions, {
@@ -281,7 +543,11 @@ export default {
                     :uuid="uuid"
                     :key="uuid"
                     :currentStudentExecutions="currentStudentExecutions"
-                    @click="currentCell = currentStudentExecutions[uuid]"
+                    @click="
+                      currentCell = currentStudentExecutions[uuid];
+                      currentCellName = cellNameMap[uuid];
+                      currentStudentName = currentCell[0].username;
+                    "
                   />
                 </div>
               </pane>
@@ -293,8 +559,13 @@ export default {
       <!-- Right -->
       <pane size="75" style="overflow: scroll">
         <div class="ui pointing secondary menu">
-          <a class="item active" data-tab="singleStudent">Current student</a>
-          <a class="item" data-tab="chart_xxx">chart</a>
+          <a class="item active" data-tab="singleStudent">
+            Current student ( {{ currentStudentName }} - {{ currentCellName }} )
+          </a>
+          <a class="item" data-tab="chart_cell_error">Cell - Error Chart</a>
+          <a class="item" data-tab="chart_total_progress">
+            Cell - Total Progress Chart
+          </a>
         </div>
 
         <div class="ui active tab" data-tab="singleStudent">
@@ -310,7 +581,20 @@ export default {
           </h1>
         </div>
 
-        <div class="ui tab" data-tab="chart_xxx">chart</div>
+        <div class="ui tab" data-tab="chart_cell_error">
+          <v-chart
+            class="chart"
+            :option="chartOptions.cell_error"
+            style="height: 800px; width: 1200px"
+          />
+        </div>
+        <div class="ui tab" data-tab="chart_total_progress">
+          <v-chart
+            class="chart"
+            :option="chartOptions.total_progress"
+            style="height: 800px; width: 1200px"
+          />
+        </div>
       </pane>
     </splitpanes>
   </main>

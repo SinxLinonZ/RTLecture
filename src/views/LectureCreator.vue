@@ -229,10 +229,16 @@ export default {
                 <label>対象セル設定</label>
               </div>
               <div class="inline field">
-                <button class="ui button positive" @click="EnableTargetAll">
+                <button
+                  class="ui button small positive"
+                  @click="EnableTargetAll"
+                >
                   全部ON
                 </button>
-                <button class="ui button negative" @click="DisableTargetAll">
+                <button
+                  class="ui button small negative"
+                  @click="DisableTargetAll"
+                >
                   全部OFF
                 </button>
               </div>
