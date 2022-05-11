@@ -87,6 +87,7 @@ export default {
 
       /*
        * Loop all executions
+       *   - Init errorCellCountMap
        */
       for (const execution of executionList) {
         // cell_error
@@ -107,53 +108,101 @@ export default {
       }
 
       // cell_error
-      option.cell_error = {
-        tooltip: {
-          trigger: "axis",
-          axisPointer: {
-            type: "shadow",
+      if (!this.chart_cell_error_ErrSummary) {
+        option.cell_error = {
+          tooltip: {
+            trigger: "axis",
+            axisPointer: {
+              type: "shadow",
+            },
           },
-        },
-        legend: {},
-        grid: {
-          left: "3%",
-          right: "4%",
-          bottom: "3%",
-          containLabel: true,
-        },
-        xAxis: {
-          type: "value",
-        },
-        yAxis: {
-          type: "category",
-          data: cellNameList,
-        },
-        series: [],
-        animationDuration: 400,
-        animationDurationUpdate: 100,
-      };
-      for (const errName of errorList) {
-        let cell_error_series = {
-          name: errName,
-          type: "bar",
-          stack: "total",
-          label: {
-            show: true,
+          legend: {},
+          grid: {
+            left: "3%",
+            right: "4%",
+            bottom: "3%",
+            containLabel: true,
           },
-          emphasis: {
-            focus: "series",
+          xAxis: {
+            type: "value",
           },
-          data: [],
+          yAxis: {
+            type: "category",
+            data: cellNameList,
+          },
+          series: [],
+          animationDuration: 400,
+          animationDurationUpdate: 100,
         };
 
-        for (const cellName of cellNameList) {
-          if (errorCellCountMap[errName][cellName]) {
-            cell_error_series.data.push(errorCellCountMap[errName][cellName]);
-          } else {
-            cell_error_series.data.push(0);
+        for (const errName of errorList) {
+          let cell_error_series = {
+            name: errName,
+            type: "bar",
+            stack: "total",
+            label: {
+              show: true,
+            },
+            emphasis: {
+              focus: "series",
+            },
+            data: [],
+          };
+
+          for (const cellName of cellNameList) {
+            if (errorCellCountMap[errName][cellName]) {
+              cell_error_series.data.push(errorCellCountMap[errName][cellName]);
+            } else {
+              cell_error_series.data.push(0);
+            }
           }
+          option.cell_error.series.push(cell_error_series);
         }
-        option.cell_error.series.push(cell_error_series);
+      } else {
+        option.cell_error = {
+          grid: {
+            left: "3%",
+            right: "4%",
+            bottom: "3%",
+            containLabel: true,
+          },
+          xAxis: {
+            type: "value",
+          },
+          yAxis: {
+            type: "category",
+            data: [],
+          },
+          series: [
+            {
+              data: [],
+              type: "bar",
+              label: {
+                show: true,
+                fontSize: 24,
+              },
+            },
+          ],
+          animationDuration: 400,
+          animationDurationUpdate: 100,
+        };
+
+        for (const errName of errorList) {
+          option.cell_error.yAxis.data.push(errName);
+          let sum = 0;
+          for (const cellName of cellNameList) {
+            if (errorCellCountMap[errName][cellName]) {
+              sum += errorCellCountMap[errName][cellName];
+            }
+          }
+          option.cell_error.series[0].data.push({
+            value: sum,
+            name: errName,
+            itemStyle: {
+              color: errName == "ok" ? "#91cc75" : "#ee6666",
+            },
+          });
+        }
       }
 
       // total_progress
@@ -279,6 +328,9 @@ export default {
       currentStudentExecutions: null,
       currentCellName: null,
       currentCellExecutions: [],
+
+      // Chart
+      chart_cell_error_ErrSummary: false,
 
       debugMode: false,
     };
@@ -642,9 +694,23 @@ export default {
           <v-chart
             class="chart"
             :option="chartOptions.cell_error"
-            style="height: 100%; width: 80%"
+            :update-options="{
+              notMerge: true,
+            }"
+            style="height: 100%; width: 100%"
             autoresize
           />
+
+          <button
+            style="position: absolute; right: 10px; top: 4em; z-index: 10"
+            class="ui button"
+            :class="{
+              positive: chart_cell_error_ErrSummary,
+            }"
+            @click="chart_cell_error_ErrSummary = !chart_cell_error_ErrSummary"
+          >
+            エラー合計表示
+          </button>
         </div>
 
         <!-- Total progress chart -->
@@ -656,7 +722,7 @@ export default {
           <v-chart
             class="chart"
             :option="chartOptions.total_progress"
-            style="height: 100%; width: 80%"
+            style="height: 100%; width: 100%"
             autoresize
             @click="TotalProgressDotClicked"
           />
