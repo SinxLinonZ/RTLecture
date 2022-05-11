@@ -58,6 +58,7 @@ export default {
 <template>
   <hr />
   <h1
+    :id="`${execution._id}_title`"
     style="padding-left: 0.5em; margin-top: 0.5em"
     :style="{
       borderLeft:

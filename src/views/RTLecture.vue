@@ -106,9 +106,6 @@ export default {
         // end of cell_error
       }
 
-      // total_progress
-      // end of total_progress
-
       // cell_error
       option.cell_error = {
         tooltip: {
@@ -205,11 +202,11 @@ export default {
           data: [],
           type: "scatter",
           symbolSize: function (data) {
-            // return Math.sqrt(data[2]) / 5e2;
             return data[2] * 15;
           },
           emphasis: {
-            focus: "series",
+            focus: "none",
+            scale: 1.4,
             label: {
               show: true,
               formatter: function (param) {
@@ -239,7 +236,11 @@ export default {
             execution.errName +
             "\n" +
             execution.errValue,
-          errName,
+          {
+            _id: execution._id,
+            username: execution.username,
+            cellUuid: execution.uuid,
+          },
         ];
         executionTotalSummary[errName].push(data);
       }
@@ -251,24 +252,6 @@ export default {
       option.total_progress.series = Object.values(executionTotalSummarySeries);
 
       return option;
-    },
-
-    ErrorCountMap() {
-      let errorCountMap = {};
-
-      for (const studentName in this.students) {
-        const student = this.students[studentName];
-        for (const uuid in student.executions) {
-          const executions = student.executions[uuid];
-          for (const execution of executions) {
-            if (execution.result == "error") {
-              if (!errorCountMap[uuid]) errorCountMap[uuid] = 0;
-              errorCountMap[uuid]++;
-            }
-          }
-        }
-      }
-      return errorCountMap;
     },
   },
 
@@ -295,7 +278,9 @@ export default {
       currentStudentName: null,
       currentStudentExecutions: null,
       currentCellName: null,
-      currentCell: [],
+      currentCellExecutions: [],
+
+      debugMode: false,
     };
   },
 
@@ -305,6 +290,34 @@ export default {
   },
 
   methods: {
+    TotalProgressDotClicked(e) {
+      const data = e.data[4];
+
+      this.currentStudentName = data.username;
+      this.currentCellName = this.cellNameMap[data.cellUuid];
+      this.currentStudentExecutions = this.students[data.username].executions;
+      this.currentCellExecutions = this.currentStudentExecutions[data.cellUuid];
+
+      // Switch to execution tab & Scroll into view
+      this.$nextTick(() => {
+        const titleElement = document.getElementById(`${data._id}_title`);
+        titleElement.style.backgroundColor = "rgb(255, 239, 66)";
+
+        this.$refs["tab-singleStudent"].click();
+        setTimeout(() => {
+          document.getElementById(`${data._id}_code`).scrollIntoView({
+            behavior: "auto",
+            block: "center",
+            inline: "center",
+          });
+        }, 100);
+
+        setTimeout(() => {
+          titleElement.style.backgroundColor = "";
+        }, 1000);
+      });
+    },
+
     InitStudent(username) {
       this.students[username] = {
         __lastExecution: null,
@@ -374,8 +387,10 @@ export default {
     },
 
     GetExecutionData(uuidList) {
-      // this.RegisterSubscription();
-      // return;
+      if (this.debugMode) {
+        this.RegisterSubscription();
+        return;
+      }
 
       this.ajaxPending = true;
 
@@ -421,7 +436,11 @@ export default {
         this.ws.close();
       }
 
-      this.ws = new WebSocket(this.APIEndpoint.ws);
+      if (this.debugMode) {
+        this.ws = new WebSocket(`ws://${window.location.hostname}:4000/`);
+      } else {
+        this.ws = new WebSocket(this.APIEndpoint.ws);
+      }
       const self = this;
       self.ws.onopen = function () {
         self.ws.send(
@@ -452,6 +471,18 @@ export default {
 </script>
 
 <template>
+  <div
+    class="ui segment"
+    style="position: absolute; right: 10px; bottom: 10px; z-index: 100"
+  >
+    <div class="inline field">
+      <div class="ui checkbox">
+        <input type="checkbox" tabindex="0" v-model="debugMode" />
+        <label>Debug Mode</label>
+      </div>
+    </div>
+  </div>
+
   <main>
     <splitpanes class="default-theme" style="height: 100vh">
       <!-- Left -->
@@ -544,9 +575,9 @@ export default {
                     :key="uuid"
                     :currentStudentExecutions="currentStudentExecutions"
                     @click="
-                      currentCell = currentStudentExecutions[uuid];
+                      currentCellExecutions = currentStudentExecutions[uuid];
                       currentCellName = cellNameMap[uuid];
-                      currentStudentName = currentCell[0].username;
+                      currentStudentName = currentCellExecutions[0].username;
                     "
                   />
                 </div>
@@ -557,21 +588,42 @@ export default {
       </pane>
 
       <!-- Right -->
-      <pane size="75" style="overflow: scroll">
-        <div class="ui pointing secondary menu">
-          <a class="item active" data-tab="singleStudent">
+      <pane size="75" style="overflow: hidden">
+        <div
+          class="ui pointing secondary menu"
+          style="
+            position: fixed;
+            width: 100%;
+            z-index: 10;
+            background-color: #f2f2f2;
+          "
+        >
+          <!-- Tabs -->
+          <a
+            class="item active"
+            ref="tab-singleStudent"
+            data-tab="singleStudent"
+          >
             Current student ( {{ currentStudentName }} - {{ currentCellName }} )
           </a>
-          <a class="item" data-tab="chart_cell_error">Cell - Error Chart</a>
+          <a class="item" data-tab="chart_cell_error">
+            <i class="chart line icon"></i>Cell - Error
+          </a>
           <a class="item" data-tab="chart_total_progress">
-            Cell - Total Progress Chart
+            <i class="chart line icon"></i>Cell - Total Progress Sumamry
           </a>
         </div>
 
-        <div class="ui active tab" data-tab="singleStudent">
-          <template v-if="currentCell.length > 0">
+        <!-- User executions -->
+        <div
+          class="ui active tab"
+          ref="tab-singleStudent-view"
+          data-tab="singleStudent"
+          style="height: 100%; padding-top: 3.5em; overflow: scroll"
+        >
+          <template v-if="currentCellExecutions.length > 0">
             <CellExecution
-              v-for="execution of currentCell.slice().reverse()"
+              v-for="execution of currentCellExecutions.slice().reverse()"
               :key="execution._id"
               :execution="execution"
             />
@@ -581,18 +633,32 @@ export default {
           </h1>
         </div>
 
-        <div class="ui tab" data-tab="chart_cell_error">
+        <!-- Cell-error chart -->
+        <div
+          class="ui tab"
+          data-tab="chart_cell_error"
+          style="height: 93%; padding-top: 3.5em; overflow: scroll"
+        >
           <v-chart
             class="chart"
             :option="chartOptions.cell_error"
-            style="height: 800px; width: 1200px"
+            style="height: 100%; width: 80%"
+            autoresize
           />
         </div>
-        <div class="ui tab" data-tab="chart_total_progress">
+
+        <!-- Total progress chart -->
+        <div
+          class="ui tab"
+          data-tab="chart_total_progress"
+          style="height: 93%; padding-top: 3.5em; overflow: scroll"
+        >
           <v-chart
             class="chart"
             :option="chartOptions.total_progress"
-            style="height: 800px; width: 1200px"
+            style="height: 100%; width: 80%"
+            autoresize
+            @click="TotalProgressDotClicked"
           />
         </div>
       </pane>
