@@ -6,7 +6,7 @@ import "xterm/css/xterm.css";
 
 import { use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
-import { BarChart, ScatterChart } from "echarts/charts";
+import { BarChart, ScatterChart, LineChart } from "echarts/charts";
 import {
   GridComponent,
   TooltipComponent,
@@ -25,6 +25,7 @@ use([
   DataZoomComponent,
   BarChart,
   ScatterChart,
+  LineChart,
 ]);
 
 import NoteBookReader from "@/components/NoteBookReader.vue";
@@ -299,6 +300,58 @@ export default {
           executionTotalSummary[errName];
       }
       option.total_progress.series = Object.values(executionTotalSummarySeries);
+
+      return option;
+    },
+
+    personalProgressChartOption() {
+      let cellNameList = [];
+      // Getting all cell names
+      for (const uuid in this.cellNameMap) {
+        cellNameList.push(this.cellNameMap[uuid]);
+      }
+
+      let executions = [];
+      for (const cellUuid in this.currentStudentExecutions) {
+        let cellExecutions = this.currentStudentExecutions[cellUuid];
+
+        for (const execution of cellExecutions) {
+          executions.push([
+            execution.date,
+            this.cellNameMap[execution.uuid],
+            execution.result,
+          ]);
+        }
+      }
+
+      executions.sort(function (x, y) {
+        return new Date(x[0]).getTime() - new Date(y[0]).getTime();
+      });
+
+      let option = {
+        xAxis: {
+          type: "time",
+        },
+        yAxis: {
+          type: "category",
+          data: cellNameList,
+        },
+        series: [
+          {
+            data: executions,
+            type: "line",
+            smooth: true,
+            symbolSize: 12,
+            itemStyle: {
+              color: function name(params) {
+                return params.data[2] == "ok" ? "#91cc75" : "#ee6666";
+              },
+            },
+          },
+        ],
+        animationDuration: 400,
+        animationDurationUpdate: 400,
+      };
 
       return option;
     },
@@ -597,7 +650,8 @@ export default {
                   :uuidList="uuidList"
                   :lastExecution="students[student].__lastExecution"
                   @click="
-                    currentStudentExecutions = students[student].executions
+                    currentStudentExecutions = students[student].executions;
+                    currentStudentName = student;
                   "
                 />
               </pane>
@@ -629,7 +683,6 @@ export default {
                     @click="
                       currentCellExecutions = currentStudentExecutions[uuid];
                       currentCellName = cellNameMap[uuid];
-                      currentStudentName = currentCellExecutions[0].username;
                     "
                   />
                 </div>
@@ -658,6 +711,9 @@ export default {
           >
             Current student ( {{ currentStudentName }} - {{ currentCellName }} )
           </a>
+          <a class="item" data-tab="chart_personal_progress">
+            <i class="chart line icon"></i>Personal Progress
+          </a>
           <a class="item" data-tab="chart_cell_error">
             <i class="chart line icon"></i>Cell - Error
           </a>
@@ -683,6 +739,20 @@ export default {
           <h1 v-else style="text-align: center; padding-top: 1em">
             No cell selected or no execution record
           </h1>
+        </div>
+
+        <!-- Personal Progress -->
+        <div
+          class="ui tab"
+          data-tab="chart_personal_progress"
+          style="height: 93%; padding-top: 3.5em; overflow: scroll"
+        >
+          <v-chart
+            class="chart"
+            :option="personalProgressChartOption"
+            style="height: 100%; width: 100%"
+            autoresize
+          />
         </div>
 
         <!-- Cell-error chart -->
