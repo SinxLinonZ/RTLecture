@@ -30,8 +30,10 @@ export default {
       term.write(
         this.execution.errName + "\n" + this.execution.errValue + "\n\n"
       );
-      for (const errLine of this.execution.STDtraceback) {
-        term.write(errLine);
+      if (this.execution.STDtraceback) {
+        for (const errLine of this.execution.STDtraceback) {
+          term.write(errLine);
+        }
       }
     }
     // execution success & has stdout

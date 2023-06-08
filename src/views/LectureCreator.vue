@@ -21,19 +21,19 @@ export default {
       if (!this.notebook) return false;
 
       const targetCells = this.notebook.cells.filter((cell) => {
-        return cell.cell_type == "code" && cell.metadata.targetCell == true;
+        return cell.cell_type == "code" && cell.metadata.RTL.targetCell == true;
       });
 
       for (const cell of targetCells) {
-        if (cell.metadata.displayName == "") return false;
-        if (cell.metadata.judge.type == "") return false;
+        if (cell.metadata.RTL.displayName == "") return false;
+        if (cell.metadata.RTL.judge.type == "") return false;
 
         // No matching/callback data
         if (
-          cell.metadata.judge.type == "fullMatch" ||
-          cell.metadata.judge.type == "callback"
+          cell.metadata.RTL.judge.type == "fullMatch" ||
+          cell.metadata.RTL.judge.type == "callback"
         ) {
-          if (cell.metadata.judge.data == "") return false;
+          if (cell.metadata.RTL.judge.data == "") return false;
         }
       }
 
@@ -55,23 +55,29 @@ export default {
     GenerateNotebook() {
       let cellNameMap = {};
 
+      let displayIdCounter = 0;
       for (let cell of this.notebook.cells) {
-        if (cell.cell_type != "code" || !cell.metadata.targetCell) continue;
+        if (cell.cell_type != "code" || !cell.metadata.RTL.targetCell) continue;
+
+        cell.metadata.RTL.displayId = displayIdCounter++;
 
         let uuid = v4();
-        cell.metadata.RTL_UUID = uuid;
-        cellNameMap[uuid] = cell.metadata.displayName;
+        cell.metadata.RTL.uuid = uuid;
+        cellNameMap[uuid] = {
+          displayName: cell.metadata.RTL.displayName,
+          displayId: cell.metadata.RTL.displayId,
+        };
 
         // clear all cell status
         cell.execution_count = null;
         cell.outputs = [];
       }
 
-      this.notebook.metadata.cellNameMap = cellNameMap;
+      this.notebook.metadata.RTL.cellNameMap = cellNameMap;
 
       // sign the notebook
-      delete this.notebook.metadata.lectureSignature;
-      this.notebook.metadata.lectureSignature = md5(
+      delete this.notebook.metadata.RTL.lectureSignature;
+      this.notebook.metadata.RTL.lectureSignature = md5(
         JSON.stringify(this.notebook)
       );
 
@@ -99,20 +105,26 @@ export default {
 
       // Init notebook metadata
       if (!notebook.metadata) notebook.metadata = {};
-      if (!notebook.metadata.lectureName) notebook.metadata.lectureName = "";
-      if (!notebook.metadata.lecturerName) notebook.metadata.lecturerName = "";
+      if (!notebook.metadata.RTL) notebook.metadata.RTL = {};
+      if (!notebook.metadata.RTL.lectureName)
+        notebook.metadata.RTL.lectureName = "";
+      if (!notebook.metadata.RTL.lecturerName)
+        notebook.metadata.RTL.lecturerName = "";
 
       // Init code cells
       for (let cell of notebook.cells) {
         if (cell.cell_type != "code") continue;
 
         if (!cell.metadata) cell.metadata = {};
-        if (typeof cell.metadata.targetCell != "boolean")
-          cell.metadata.targetCell = true;
-        if (!cell.metadata.displayName) cell.metadata.displayName = "";
-        if (!cell.metadata.judge) cell.metadata.judge = {};
-        if (!cell.metadata.judge.type) cell.metadata.judge.type = "";
-        if (!cell.metadata.judge.data) cell.metadata.judge.data = "";
+        if (!cell.metadata.RTL) cell.metadata.RTL = {};
+        if (typeof cell.metadata.RTL.targetCell != "boolean")
+          cell.metadata.RTL.targetCell = true;
+        if (!cell.metadata.RTL.displayId)
+          cell.metadata.RTL.displayId = undefined;
+        if (!cell.metadata.RTL.displayName) cell.metadata.RTL.displayName = "";
+        if (!cell.metadata.RTL.judge) cell.metadata.RTL.judge = {};
+        if (!cell.metadata.RTL.judge.type) cell.metadata.RTL.judge.type = "";
+        if (!cell.metadata.RTL.judge.data) cell.metadata.RTL.judge.data = "";
       }
 
       this.notebook = notebook;
@@ -124,12 +136,13 @@ export default {
      */
     AutoNaming() {
       let targetCells = this.notebook.cells.filter((cell) => {
-        return cell.cell_type == "code" && cell.metadata.targetCell == true;
+        return cell.cell_type == "code" && cell.metadata.RTL.targetCell == true;
       });
 
       let i = 1;
       for (let cell of targetCells) {
-        cell.metadata.displayName = this.cellNameInitial + i;
+        cell.metadata.RTL.displayId = i;
+        cell.metadata.RTL.displayName = this.cellNameInitial + i;
         i++;
       }
     },
@@ -138,10 +151,10 @@ export default {
       const targetValue = e.target.value;
 
       let targetCells = this.notebook.cells.filter((cell) => {
-        return cell.cell_type == "code" && cell.metadata.targetCell == true;
+        return cell.cell_type == "code" && cell.metadata.RTL.targetCell == true;
       });
       for (let cell of targetCells) {
-        cell.metadata.judge.type = targetValue;
+        cell.metadata.RTL.judge.type = targetValue;
       }
 
       // reset global setter value
@@ -153,7 +166,7 @@ export default {
         return cell.cell_type == "code";
       });
       for (let cell of targetCells) {
-        cell.metadata.targetCell = true;
+        cell.metadata.RTL.targetCell = true;
       }
     },
     DisableTargetAll() {
@@ -161,7 +174,7 @@ export default {
         return cell.cell_type == "code";
       });
       for (let cell of targetCells) {
-        cell.metadata.targetCell = false;
+        cell.metadata.RTL.targetCell = false;
       }
     },
   },
@@ -191,7 +204,7 @@ export default {
                 <input
                   type="text"
                   placeholder="授業名"
-                  v-model="notebook.metadata.lectureName"
+                  v-model="notebook.metadata.RTL.lectureName"
                 />
               </div>
               <div class="field">
@@ -199,7 +212,7 @@ export default {
                 <input
                   type="text"
                   placeholder="講師名"
-                  v-model="notebook.metadata.lecturerName"
+                  v-model="notebook.metadata.RTL.lecturerName"
                 />
               </div>
               <div class="field" style="text-align: right">
@@ -207,8 +220,8 @@ export default {
                   class="ui button primary"
                   :class="{
                     disabled:
-                      !notebook.metadata.lectureName ||
-                      !notebook.metadata.lecturerName ||
+                      !notebook.metadata.RTL.lectureName ||
+                      !notebook.metadata.RTL.lecturerName ||
                       validTargetCells == 0,
                   }"
                   type="submit"
@@ -284,7 +297,7 @@ export default {
                   style="padding-top: 0"
                   readonly
                   placeholder="シグネチャー"
-                  v-model="notebook.metadata.lectureSignature"
+                  v-model="notebook.metadata.RTL.lectureSignature"
                 />
               </div>
             </div>
@@ -310,7 +323,7 @@ export default {
           <!-- Checkbox -->
           <div style="place-self: center">
             <div v-if="cell.cell_type == 'code'" class="ui slider checkbox">
-              <input type="checkbox" v-model="cell.metadata.targetCell" />
+              <input type="checkbox" v-model="cell.metadata.RTL.targetCell" />
               <label>対象セル</label>
             </div>
           </div>
@@ -337,17 +350,17 @@ export default {
               v-if="cell.cell_type == 'code'"
               class="fields"
               style="margin: 0; width: 100%"
-              :class="{ disabled: !cell.metadata.targetCell }"
+              :class="{ disabled: !cell.metadata.RTL.targetCell }"
             >
               <div class="six wide field">
                 <input
                   type="text"
                   placeholder="セル名"
-                  v-model="cell.metadata.displayName"
+                  v-model="cell.metadata.RTL.displayName"
                 />
               </div>
               <div class="four wide field">
-                <select v-model="cell.metadata.judge.type">
+                <select v-model="cell.metadata.RTL.judge.type">
                   <option disabled value="">判断方法</option>
                   <option value="execResult">実行成功</option>
                   <option value="fullMatch">完全マッチング</option>
@@ -357,14 +370,14 @@ export default {
               <div
                 class="six wide field"
                 v-show="
-                  cell.metadata.judge.type == 'callback' ||
-                  cell.metadata.judge.type == 'fullMatch'
+                  cell.metadata.RTL.judge.type == 'callback' ||
+                  cell.metadata.RTL.judge.type == 'fullMatch'
                 "
               >
                 <textarea
-                  v-model="cell.metadata.judge.data"
+                  v-model="cell.metadata.RTL.judge.data"
                   :placeholder="
-                    cell.metadata.judge.type == 'callback'
+                    cell.metadata.RTL.judge.type == 'callback'
                       ? 'カスタマイズ関数'
                       : 'マッチング文字列'
                   "

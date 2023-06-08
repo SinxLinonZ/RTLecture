@@ -14,7 +14,7 @@ import {
   TitleComponent,
   DataZoomComponent,
 } from "echarts/components";
-import VChart, { THEME_KEY } from "vue-echarts";
+import { THEME_KEY } from "vue-echarts";
 
 use([
   CanvasRenderer,
@@ -33,6 +33,10 @@ import StudentButton from "@/components/StudentButton.vue";
 import CellButton from "@/components/CellButton.vue";
 import CellExecution from "@/components/CellExecution.vue";
 
+import PersonalProgressChart from "@/components/charts/PersonalProgressChart.vue";
+import ErrorChart from "@/components/charts/ErrorChart.vue";
+import TotalProgressChart from "@/components/charts/TotalProgressChart.vue";
+
 export default {
   components: {
     Splitpanes,
@@ -41,319 +45,28 @@ export default {
     StudentButton,
     CellButton,
     CellExecution,
-    VChart,
+
+    PersonalProgressChart,
+    ErrorChart,
+    TotalProgressChart,
   },
 
   provide: {
-    [THEME_KEY]: "dark",
+    // [THEME_KEY]: "dark",
+    [THEME_KEY]: null,
   },
 
   computed: {
-    chartOptions() {
-      let cellNameList = [];
-      let executionList = [];
-      let errorList = [];
-
-      // Getting all cell names
-      for (const uuid in this.cellNameMap) {
-        cellNameList.push(this.cellNameMap[uuid]);
-      }
-      cellNameList.reverse();
-
-      // Getting all executions
-      for (const studentName in this.students) {
-        let student = this.students[studentName];
-        for (const uuid in student.executions) {
-          for (const execution of student.executions[uuid]) {
-            executionList.push(execution);
-
-            // Getting all errors
-            if (execution.result == "ok") {
-              if (errorList.indexOf("ok") == -1) {
-                errorList.push("ok");
-              }
-            } else {
-              if (errorList.indexOf(execution.errName) == -1) {
-                errorList.push(execution.errName);
-              }
-            }
-          }
-        }
-      }
-
-      let option = {};
-      let errorCellCountMap = {};
-      let executionTotalSummary = {};
-      let executionTotalSummarySeries = {};
-
-      /*
-       * Loop all executions
-       *   - Init errorCellCountMap
-       */
-      for (const execution of executionList) {
-        // cell_error
-        let errName = execution.errName;
-        let uuid = execution.uuid;
-        if (execution.result == "error") {
-          if (!errorCellCountMap[errName]) errorCellCountMap[errName] = {};
-          if (!errorCellCountMap[errName][this.cellNameMap[uuid]])
-            errorCellCountMap[errName][this.cellNameMap[uuid]] = 0;
-          errorCellCountMap[errName][this.cellNameMap[uuid]]++;
-        } else {
-          if (!errorCellCountMap["ok"]) errorCellCountMap["ok"] = {};
-          if (!errorCellCountMap["ok"][this.cellNameMap[uuid]])
-            errorCellCountMap["ok"][this.cellNameMap[uuid]] = 0;
-          errorCellCountMap["ok"][this.cellNameMap[uuid]]++;
-        }
-        // end of cell_error
-      }
-
-      // cell_error
-      if (!this.chart_cell_error_ErrSummary) {
-        option.cell_error = {
-          tooltip: {
-            trigger: "axis",
-            axisPointer: {
-              type: "shadow",
-            },
-          },
-          legend: {},
-          grid: {
-            left: "3%",
-            right: "4%",
-            bottom: "3%",
-            containLabel: true,
-          },
-          xAxis: {
-            type: "value",
-          },
-          yAxis: {
-            type: "category",
-            data: cellNameList,
-          },
-          series: [],
-          animationDuration: 400,
-          animationDurationUpdate: 100,
-        };
-
-        for (const errName of errorList) {
-          let cell_error_series = {
-            name: errName,
-            type: "bar",
-            stack: "total",
-            label: {
-              show: true,
-            },
-            emphasis: {
-              focus: "series",
-            },
-            data: [],
-          };
-
-          for (const cellName of cellNameList) {
-            if (errorCellCountMap[errName][cellName]) {
-              cell_error_series.data.push(errorCellCountMap[errName][cellName]);
-            } else {
-              cell_error_series.data.push(0);
-            }
-          }
-          option.cell_error.series.push(cell_error_series);
-        }
-      } else {
-        option.cell_error = {
-          grid: {
-            left: "3%",
-            right: "4%",
-            bottom: "3%",
-            containLabel: true,
-          },
-          xAxis: {
-            type: "value",
-          },
-          yAxis: {
-            type: "category",
-            data: [],
-          },
-          series: [
-            {
-              data: [],
-              type: "bar",
-              label: {
-                show: true,
-                fontSize: 24,
-              },
-            },
-          ],
-          animationDuration: 400,
-          animationDurationUpdate: 100,
-        };
-
-        for (const errName of errorList) {
-          option.cell_error.yAxis.data.push(errName);
-          let sum = 0;
-          for (const cellName of cellNameList) {
-            if (errorCellCountMap[errName][cellName]) {
-              sum += errorCellCountMap[errName][cellName];
-            }
-          }
-          option.cell_error.series[0].data.push({
-            value: sum,
-            name: errName,
-            itemStyle: {
-              color: errName == "ok" ? "#91cc75" : "#ee6666",
-            },
-          });
-        }
-      }
-
-      // total_progress
-      option.total_progress = {
-        title: {
-          text: "Total progress summary",
-          left: "5%",
-          top: "3%",
-        },
-        legend: {
-          right: "10%",
-          top: "3%",
-          data: [],
-        },
-        grid: {
-          left: "8%",
-          top: "10%",
-        },
-        xAxis: {
-          type: "time",
-        },
-        yAxis: {
-          type: "category",
-          data: cellNameList,
-          splitLine: {
-            show: true,
-          },
-        },
-        series: [],
-        color: [],
-        dataZoom: [
-          {
-            type: "slider",
-          },
-        ],
-        animationDuration: 400,
-        animationDurationUpdate: 100,
-      };
-
-      for (const errName of errorList) {
-        option.total_progress.legend.data.push(errName);
-        executionTotalSummary[errName] = [];
-
-        let total_progress_series = {
-          name: errName,
-          data: [],
-          type: "scatter",
-          symbolSize: function (data) {
-            return data[2] * 15;
-          },
-          emphasis: {
-            focus: "none",
-            scale: 1.4,
-            label: {
-              show: true,
-              formatter: function (param) {
-                return param.data[3];
-              },
-              position: "top",
-            },
-          },
-          itemStyle: {
-            shadowBlur: 10,
-            shadowColor: "rgba(25, 100, 150, 0.5)",
-            shadowOffsetY: 5,
-            color: errName == "ok" ? "rgba(0, 158, 0, 0.5)" : undefined,
-          },
-        };
-        executionTotalSummarySeries[errName] = total_progress_series;
-      }
-
-      for (const execution of executionList) {
-        let errName = execution.result == "ok" ? "ok" : execution.errName;
-        let data = [
-          execution.date,
-          this.cellNameMap[execution.uuid],
-          1,
-          execution.username +
-            "\n" +
-            execution.errName +
-            "\n" +
-            execution.errValue,
-          {
-            _id: execution._id,
-            username: execution.username,
-            cellUuid: execution.uuid,
-          },
-        ];
-        executionTotalSummary[errName].push(data);
-      }
-
-      for (const errName in executionTotalSummary) {
-        executionTotalSummarySeries[errName].data =
-          executionTotalSummary[errName];
-      }
-      option.total_progress.series = Object.values(executionTotalSummarySeries);
-
-      return option;
-    },
-
-    personalProgressChartOption() {
+    cellNameList() {
       let cellNameList = [];
       // Getting all cell names
       for (const uuid in this.cellNameMap) {
         cellNameList.push(this.cellNameMap[uuid]);
       }
-
-      let executions = [];
-      for (const cellUuid in this.currentStudentExecutions) {
-        let cellExecutions = this.currentStudentExecutions[cellUuid];
-
-        for (const execution of cellExecutions) {
-          executions.push([
-            execution.date,
-            this.cellNameMap[execution.uuid],
-            execution.result,
-          ]);
-        }
-      }
-
-      executions.sort(function (x, y) {
-        return new Date(x[0]).getTime() - new Date(y[0]).getTime();
+      cellNameList.sort((a, b) => {
+        return a.displayId > b.displayId ? 1 : -1;
       });
-
-      let option = {
-        xAxis: {
-          type: "time",
-        },
-        yAxis: {
-          type: "category",
-          data: cellNameList,
-        },
-        series: [
-          {
-            data: executions,
-            type: "line",
-            smooth: true,
-            symbolSize: 12,
-            itemStyle: {
-              color: function name(params) {
-                return params.data[2] == "ok" ? "#91cc75" : "#ee6666";
-              },
-            },
-          },
-        ],
-        animationDuration: 400,
-        animationDurationUpdate: 400,
-      };
-
-      return option;
+      return cellNameList;
     },
   },
 
@@ -377,12 +90,12 @@ export default {
       ws: null,
 
       // Status management
-      currentStudentName: null,
-      currentStudentExecutions: null,
-      currentCellName: null,
-      currentCellExecutions: [],
+      selectedStudentName: null,
+      selectedStudentExecutions: null,
+      selectedCellName: null,
+      selectedCellExecutions: [],
 
-      // Chart
+      // for chart switch
       chart_cell_error_ErrSummary: false,
 
       debugMode: false,
@@ -398,10 +111,11 @@ export default {
     TotalProgressDotClicked(e) {
       const data = e.data[4];
 
-      this.currentStudentName = data.username;
-      this.currentCellName = this.cellNameMap[data.cellUuid];
-      this.currentStudentExecutions = this.students[data.username].executions;
-      this.currentCellExecutions = this.currentStudentExecutions[data.cellUuid];
+      this.selectedStudentName = data.username;
+      this.selectedCellName = this.cellNameMap[data.cellUuid].displayName;
+      this.selectedStudentExecutions = this.students[data.username].executions;
+      this.selectedCellExecutions =
+        this.selectedStudentExecutions[data.cellUuid];
 
       // Switch to execution tab & Scroll into view
       this.$nextTick(() => {
@@ -461,7 +175,7 @@ export default {
         if (cell.cell_type == "code") {
           flag_noCodeCell = false;
         }
-        if (cell.metadata.RTL_UUID) {
+        if (cell.metadata?.RTL?.uuid) {
           flag_noUuids = false;
         }
       }
@@ -474,19 +188,20 @@ export default {
         return;
       }
 
-      // Cache all cell uuids
+      /**
+       ** Cache all cell uuids
+       */
       this.uuidList = [];
       for (let i = 0; i < notebook.cells.length; i++) {
         const cell = notebook.cells[i];
 
-        if (cell.cell_type == "code" && cell.metadata.RTL_UUID) {
-          this.uuidList.push(cell.metadata.RTL_UUID);
+        if (cell.cell_type == "code" && cell.metadata.RTL.uuid) {
+          this.uuidList.push(cell.metadata.RTL.uuid);
         }
       }
 
-      // TODO: fetch from server if no cell name map in current notebook
-      this.cellNameMap = notebook.metadata.cellNameMap;
-      this.displayMsg = notebook.metadata.lectureName || fileName;
+      this.cellNameMap = notebook.metadata.RTL.cellNameMap;
+      this.displayMsg = notebook.metadata.RTL.lectureName || fileName;
 
       this.GetExecutionData(this.uuidList);
     },
@@ -500,10 +215,10 @@ export default {
       this.ajaxPending = true;
 
       this.students = {};
-      this.currentStudentExecutions = null;
-      this.currentStudentName = null;
-      this.currentCell = [];
-      this.currentCellName = null;
+      this.selectedStudentExecutions = null;
+      this.selectedStudentName = null;
+      this.selectedCellExecutions = [];
+      this.selectedCellName = null;
 
       axios
         .post(this.APIEndpoint.host + this.APIEndpoint.executions, {
@@ -576,6 +291,9 @@ export default {
 </script>
 
 <template>
+  <!-- 
+  ---- Debug Mode
+   -->
   <div
     class="ui segment"
     style="position: absolute; right: 10px; bottom: 10px; z-index: 100"
@@ -588,16 +306,24 @@ export default {
     </div>
   </div>
 
+  <!--
+  ---- Main
+  -->
   <main>
     <splitpanes class="default-theme" style="height: 100vh">
-      <!-- Left -->
+      <!--
+      ---- Left
+      -->
       <pane size="25">
         <splitpanes horizontal class="default-theme">
-          <!-- Header -->
+          <!--
+          ---- Left top: Notebook loader
+          -->
           <pane size="10">
+            <!-- Double click to refresh current notebook -->
             <!-- 
-            ---- Double click to refresh current notebook 
-            -->
+              @notebook-loaded: notebook, filename, success
+             -->
             <NoteBookReader
               :displayMsg="displayMsg"
               @notebook-loaded="ParseNotebookCells"
@@ -607,7 +333,9 @@ export default {
               "
             />
           </pane>
-          <!-- List -->
+          <!--
+          ---- Left bottom: list
+          -->
           <pane size="90">
             <splitpanes class="default-theme">
               <!-- Student list -->
@@ -650,8 +378,8 @@ export default {
                   :uuidList="uuidList"
                   :lastExecution="students[student].__lastExecution"
                   @click="
-                    currentStudentExecutions = students[student].executions;
-                    currentStudentName = student;
+                    selectedStudentExecutions = students[student].executions;
+                    selectedStudentName = student;
                   "
                 />
               </pane>
@@ -671,7 +399,7 @@ export default {
                 ></div>
 
                 <div
-                  v-else-if="currentStudentExecutions"
+                  v-else-if="selectedStudentExecutions"
                   class="ui basic segments"
                 >
                   <CellButton
@@ -679,10 +407,10 @@ export default {
                     :cellNameMap="cellNameMap"
                     :uuid="uuid"
                     :key="uuid"
-                    :currentStudentExecutions="currentStudentExecutions"
+                    :selectedStudentExecutions="selectedStudentExecutions"
                     @click="
-                      currentCellExecutions = currentStudentExecutions[uuid];
-                      currentCellName = cellNameMap[uuid];
+                      selectedCellExecutions = selectedStudentExecutions[uuid];
+                      selectedCellName = cellNameMap[uuid].displayName;
                     "
                   />
                 </div>
@@ -709,7 +437,8 @@ export default {
             ref="tab-singleStudent"
             data-tab="singleStudent"
           >
-            Current student ( {{ currentStudentName }} - {{ currentCellName }} )
+            Current student ( {{ selectedStudentName }} -
+            {{ selectedCellName }} )
           </a>
           <a class="item" data-tab="chart_personal_progress">
             <i class="chart line icon"></i>Personal Progress
@@ -729,9 +458,9 @@ export default {
           data-tab="singleStudent"
           style="height: 100%; padding-top: 3.5em; overflow: scroll"
         >
-          <template v-if="currentCellExecutions.length > 0">
+          <template v-if="selectedCellExecutions.length > 0">
             <CellExecution
-              v-for="execution of currentCellExecutions.slice().reverse()"
+              v-for="execution of selectedCellExecutions.slice().reverse()"
               :key="execution._id"
               :execution="execution"
             />
@@ -747,11 +476,10 @@ export default {
           data-tab="chart_personal_progress"
           style="height: 93%; padding-top: 3.5em; overflow: scroll"
         >
-          <v-chart
-            class="chart"
-            :option="personalProgressChartOption"
-            style="height: 100%; width: 100%"
-            autoresize
+          <personal-progress-chart
+            :selectedStudentExecutions="selectedStudentExecutions"
+            :cellNameMap="cellNameMap"
+            :cellNameList="cellNameList"
           />
         </div>
 
@@ -761,14 +489,10 @@ export default {
           data-tab="chart_cell_error"
           style="height: 93%; padding-top: 3.5em; overflow: scroll"
         >
-          <v-chart
-            class="chart"
-            :option="chartOptions.cell_error"
-            :update-options="{
-              notMerge: true,
-            }"
-            style="height: 100%; width: 100%"
-            autoresize
+          <error-chart
+            :cellNameMap="cellNameMap"
+            :students="students"
+            :chart_cell_error_ErrSummary="chart_cell_error_ErrSummary"
           />
 
           <button
@@ -789,12 +513,10 @@ export default {
           data-tab="chart_total_progress"
           style="height: 93%; padding-top: 3.5em; overflow: scroll"
         >
-          <v-chart
-            class="chart"
-            :option="chartOptions.total_progress"
-            style="height: 100%; width: 100%"
-            autoresize
-            @click="TotalProgressDotClicked"
+          <total-progress-chart
+            :cellNameMap="cellNameMap"
+            :students="students"
+            @total-progress-dot-clicked="TotalProgressDotClicked"
           />
         </div>
       </pane>

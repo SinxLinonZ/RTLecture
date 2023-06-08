@@ -1,12 +1,12 @@
 <script>
 export default {
-  props: ["uuid", "cellNameMap", "currentStudentExecutions"],
+  props: ["uuid", "cellNameMap", "selectedStudentExecutions"],
   computed: {
     cellStatus() {
-      if (!this.currentStudentExecutions) return [];
+      if (!this.selectedStudentExecutions) return [];
 
       let err = false;
-      for (const execution of this.currentStudentExecutions[this.uuid]) {
+      for (const execution of this.selectedStudentExecutions[this.uuid]) {
         if (execution.result == "ok") {
           return ["green"];
         } else {
@@ -22,7 +22,7 @@ export default {
 
 <template>
   <div class="ui segment inverted" :class="cellStatus">
-    <p>{{ cellNameMap[uuid] }}</p>
+    <p>{{ cellNameMap[uuid].displayName }}</p>
   </div>
 </template>
 
